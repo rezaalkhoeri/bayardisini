@@ -7,6 +7,7 @@ import com.pos.bayardisini.auth.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -20,8 +21,7 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<?> register(
-            @RequestBody RegisterRequest request
-    ) {
+            @RequestBody RegisterRequest request) {
 
         try {
 
@@ -46,17 +46,10 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(
-            @RequestBody LoginRequest request
-    ) {
-
+    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
         try {
-
-            AuthResponse authResponse =
-                    authService.login(request);
-
+            AuthResponse authResponse = authService.login(request);
             return ResponseEntity.ok(authResponse);
-
         } catch (Exception e) {
 
             e.printStackTrace();
@@ -72,5 +65,14 @@ public class AuthController {
     @GetMapping("/ping")
     public String ping() {
         return "AUTH OK";
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<?> me(
+            Authentication authentication) {
+
+        return ResponseEntity.ok(
+                authService.me(
+                        authentication.getName()));
     }
 }

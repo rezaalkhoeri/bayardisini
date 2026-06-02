@@ -15,59 +15,68 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AuthService {
 
-    private final UserRepository userRepository;
+        private final UserRepository userRepository;
 
-    private final PasswordEncoder passwordEncoder;
+        private final PasswordEncoder passwordEncoder;
 
-    private final JwtService jwtService;
+        private final JwtService jwtService;
 
-    public void register(RegisterRequest request) {
+        public void register(RegisterRequest request) {
 
-        if (userRepository.existsByEmail(request.email())) {
-            throw new RuntimeException("Email already used");
+                if (userRepository.existsByEmail(request.email())) {
+                        throw new RuntimeException("Email already used");
+                }
+
+                UUID tenantId;
+                try {
+                        tenantId = UUID.fromString(request.tenantId());
+                } catch (Exception e) {
+                        throw new RuntimeException("Invalid tenantId format");
+                }
+
+                User user = User.builder()
+                                .id(UUID.randomUUID())
+                                .tenantId(tenantId)
+                                .fullName(request.fullName())
+                                .email(request.email())
+                                .phone(request.phone())
+                                .passwordHash(passwordEncoder.encode(request.password()))
+                                .isActive(true)
+                                .createdAt(LocalDateTime.now())
+                                .updatedAt(LocalDateTime.now())
+                                .deletedAt(null)
+                                .build();
+
+                userRepository.save(user);
         }
 
-        User user = User.builder()
-                .id(UUID.randomUUID())
-                .tenantId(UUID.fromString("4b06d201-008e-466b-a0ec-e8afa7a05157"))
-                .fullName(request.fullName())
-                .email(request.email())
-                .passwordHash(
-                        passwordEncoder.encode(
-                                request.password()
-                        )
-                )
-                .isActive(true)
-                .createdAt(LocalDateTime.now())
-                .build();
+        public AuthResponse login(LoginRequest request) {
 
-        userRepository.save(user);
-    }
-
-    public AuthResponse login(LoginRequest request) {
-
-        User user =
-                userRepository.findByEmail(
+                User user = userRepository.findByEmail(
                                 request.email())
-                        .orElseThrow(
-                                () -> new RuntimeException("User not found")
-                        );
+                                .orElseThrow(() -> new RuntimeException("User not found"));
 
-        boolean valid =
-                passwordEncoder.matches(
-                        request.password(),
-                        user.getPasswordHash()
-                );
+                boolean valid = passwordEncoder.matches(
+                                request.password(),
+                                user.getPasswordHash());
 
-        if (!valid) {
-            throw new RuntimeException(
-                    "Invalid email or password"
-            );
+                if (!valid) {
+                        throw new RuntimeException("Invalid email or password");
+                }
+
+                String token = jwtService.generateToken(user);
+                return new AuthResponse(token);
         }
 
-        String token =
-                jwtService.generateToken(user);
+        public MeResponse me(String email) {
 
-        return new AuthResponse(token);
-    }
+                User user = userRepository.findByEmail(email)
+                                .orElseThrow();
+
+                return new MeResponse(
+                                user.getId(),
+                                user.getTenantId(),
+                                user.getFullName(),
+                                user.getEmail());
+        }
 }
